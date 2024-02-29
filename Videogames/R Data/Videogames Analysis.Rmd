@@ -1,0 +1,191 @@
+---
+title: "Videogames Analysis"
+author: "Jose Juan Lopez"
+date: "2024-02-22"
+output: html_document
+---
+
+## Setting up my environment
+
+Load libraries.
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(maps)
+library(knitr)
+library(here)
+library(skimr)
+library(janitor)
+library(readr)
+library(scales)
+library(gridExtra)
+library(grid)
+library(magrittr)
+library(patchwork)
+library(RColorBrewer)
+```
+
+## Read documents
+
+In this analysis I choose to analyze:
+
+- VideoGamesGlobalSales_2024_02_19.csv
+- ConsolesGlobalSales_2024_02_19.csv   
+
+I want to conduct this analysis because I love video games and play them in my free time. It has caught my attention to learn more about the **sales** that have been generated and the **preferences** that people have around the world because it is information that I wasn't aware of.
+
+### Showing video games global sales data
+
+```{r}
+dVgSales <- read.csv('~/Documents/Data Analyst/Videogames/VG-Chartz/VideoGamesGlobalSales_2024_02_19.csv')
+unique(dVgSales)
+```
+
+### Showing consoles global sales data
+
+```{r}
+dConSales <- read.csv('~/Documents/Data Analyst/Videogames/VG-Chartz/ConsolesGlobalSales_2024_02_19.csv')
+unique(dConSales)
+```
+
+## Searching duplicate data
+
+After to showing sales activity, I inspected and complete missing data on the genre and year of video games and consoles from excel and check if exists duplicate data
+
+### Videogames sales data
+
+```{r}
+dVgSales %>% 
+  get_dupes(Name)
+```
+
+### Consoles sales data
+
+```{r}
+dConSales %>% 
+  get_dupes(Platform)
+```
+
+Next to performing a search for duplicate information in the files of the consoles and titles some rows were found containing repeated names in the list of videogames. However, they will not be removed because the titles belong to different platforms.
+
+## Analysis
+
+Once the data has been completed, the investigation continues to find the data that will help to create visualizations about the results what I want to obtain.
+
+First, I start by creating and displaying console sales for each region. Because, I want to know which are the most popular consoles around the world
+
+```{r}
+total_sales = dConSales %>%
+  subset(select = c(Platform, NA_Sales, EU_Sales, JP_Sales, Other_Sales)) %>%
+  group_by(Platform) %>%
+  pivot_longer(c("NA_Sales", "EU_Sales", "JP_Sales", "Other_Sales"), values_to = "Sales")
+  ggplot(total_sales, aes(x = Platform, y = Sales, fill = name)) + geom_bar(stat = "identity", position = position_dodge(width = 0.3)) + labs(title = "Console Sales per Region", x = "Console", y = "Sales(inMillions)") + theme_linedraw() + theme(axis.text.x = element_text(size = 5, angle = 90)) + scale_fill_brewer(palette = "Set1")
+```
+
+After obtaining the data, I was able to observe that the preferred console in North America was the Nintendo DS, as its sales record to date stands at 57.92 million. In the case of Europe, their favorite console is the PlayStation 2, with sales totaling 55.28 million. As for Japan, the preferred console was the Nintendo DS, with sales reaching 32.99 million. Lastly, in other parts of the world, the preferred console was the PlayStation 2, with sales of 26.59 million
+
+```{r}
+dConSales %>%
+  group_by(Platform) %>%
+  summarize(total = sum(Global_Sales)) %>%
+  arrange(desc(total)) %>%
+  slice(1:5) %>%
+  ggplot(aes(x = total, y = reorder(Platform, -total), fill = Platform)) + 
+  geom_bar(stat = "identity") + 
+  labs(title = "Top 5 Platforms by Global Sale", x= "Sales(Millions)", y = "Console") + 
+  theme_linedraw() + 
+  theme(axis.text.y = element_text(size = 8, angle = 0)) +
+  scale_fill_brewer(palette = "Set1")
+```
+
+These findings raised another question for me: Are Nintendo and PlayStation the most favored companies among video game enthusiasts? The answer is yes. Upon reviewing the sales figures of other consoles, the PlayStation 4, Nintendo Switch, and Game Boy, are other consoles that also preferred by people worldwide
+
+After seeing the results, I asked myself: What's happening with Microsoft and the other video game companies? Do they have popular consoles in the video game market?
+
+```{r}
+color <- c("Xbox 360 (X360)" = "mediumseagreen")
+
+dConSales %>%
+  group_by(Platform) %>%
+  summarize(total = sum(Global_Sales)) %>%
+  arrange(desc(total)) %>%
+  slice(1:10) %>%
+  ggplot(aes(x = reorder(Platform, -total), y = total, fill = Platform)) + 
+  geom_col() +
+  geom_text(aes(label = paste0(round(total, 2), "M")), vjust = -0.10, color = "black", size = 2.5) +
+  labs(title = "Top 10 Platforms by Global Sale", x = "Console", y = "Sales (Millions)") +
+  scale_fill_manual(values = color) + theme_linedraw() +
+  theme(axis.text.x = element_text(size = 10, angle = 90))
+```
+
+The finding I discovered was that Microsoft only has one preferred video game console by people, which is called the Xbox 360.
+
+After clarifying my doubts about console gaming, I continue to observe which are the 10 favorite titles that users prefer to play nowadays
+
+```{r}
+dVgSales %>%
+  group_by(Name) %>%
+  summarize(total = sum(Global_Sales)) %>%
+  arrange(desc(total)) %>%
+  slice(1:10) %>%
+  ggplot(aes(x = total, y = reorder(Name, total), fill = Name)) + 
+  geom_col() +
+  geom_text(aes(label = paste0(round(total, 2), "M")), hjust = -0.10, color = "black", size = 2.5) +
+  labs(title = "10 Best-Selling Video Games Of All Time", x = "Sales (Millions)", y = "Game") +
+  theme_linedraw() +
+  theme(axis.text.y = element_text(size = 6))
+```
+When I observed the list of video games, I thought the game in first place would be a multiplatform one, which it wasn't. On the other hand, I can see that the games do not belong to a specific genre. Therefore, it makes me wonder which genres people prefer to enjoy in their free time
+
+```{r}
+genre_zone <- dVgSales %>%
+  group_by(Genre) %>%
+  summarize(NorthA_Sales = sum(NA_Sales), 
+            Europe_Sales = sum(EU_Sales),
+            Japan_Sales = sum(JP_Sales),
+            OtherC_Sales = sum(Other_Sales),
+            .groups = "drop")
+sales_genre <- genre_zone %>%
+  mutate(Total_Sales = NorthA_Sales + Europe_Sales + Japan_Sales + OtherC_Sales) %>%
+  top_n(5, Total_Sales) %>%
+  arrange(desc(Total_Sales))
+table <- kable(sales_genre, caption = "The Best-Selling Video Game Genres by Zone")
+print(table)
+```
+
+Once the results are obtained, we observe the most popular genres around the world, noting that action games are the genre of choice globally
+
+```{r}
+dVgSales %>%
+  group_by(Genre) %>%
+  summarize(total = sum(Global_Sales)) %>%
+  arrange(desc(total)) %>%
+  slice(1:5) %>%
+  ggplot(aes(x = total, y = reorder(Genre, total), size = total, fill = total)) + 
+  geom_point(shape = 21, color = "black") +
+  geom_text(aes(label = paste0(round(total, 2), "M")), hjust = -0.10, color = "black", size = 2.5) +
+  scale_fill_gradient(low = "red3", high = "seagreen3") +
+  labs(title = "5 Best-Selling Video Games Genre Of All Time", x = "Sales (Millions)", y = "Genre") +
+  theme_linedraw() +
+  theme(axis.text.y = element_text(size = 8))
+```
+
+## Conclusion
+
+In conclusion, after conducting a thorough analysis of the research on video games, I am pleased to share that it has provided me with a deeper insight into the world of video games. This allowed me to observe sales trends, the most popular genres, and the geographic distribution of sales, and above all, the preferences of players worldwide.
+
+Furthermore, it has given me a clearer idea of the opportunities and challenges faced by video game developers and publishers in a highly competitive global market.
+
+Conducting this research analysis on video games has been a rewarding experience, same like to purchasing and opening a new game, which has allowed me to delve deeper into a field that I am passionate about. 
+I hope that the knowledge gained through this study can be useful in better understanding the dynamics and evolution of the video game industry in the future.
+
+## References
+
+I would like to thank the following websites that helped me with create my case:
+
+* Kaggle [Click here](https://www.kaggle.com)
+* Coursera [Click here](https://www.coursera.org)
+* R-Charts [Click here](https://r-charts.com)
