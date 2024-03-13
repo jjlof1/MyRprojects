@@ -1,0 +1,427 @@
+---
+title: "Pets In Mexico Analysis"
+author: "Jose Juan Lopez"
+date: "2024-03-05"
+output: html_document
+---
+
+## Setting up my environment
+
+Load libraries.
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(knitr)
+library(skimr)
+library(janitor)
+library(readr)
+library(grid)
+library(plotly)
+library(magrittr)
+library(RColorBrewer)
+library(scales)
+library(tibble)
+library(maps)
+library(sf)
+library(rnaturalearth)
+```
+
+## Read documents
+
+In this analysis I choose to analyze:
+
+-   Mascotas_Hogar_2021_12_08.csv
+-   Mascotas_Población_2021_12_08.csv
+-   Mascotas_Tipo_2021_12_08.csv
+
+I want to conduct this analysis because I have a fondness for animals, although to be completely honest, I have a stronger preference for cats as they are more independent in my opinion. Regarding the topic at hand, I would like to learn about the **number** of animals present throughout Mexican territory, as well as the most **favored** pet among Mexicans.
+
+### Showing house pet data
+
+```{r}
+dHouse <- read.csv('~/Documents/Data Analyst/PetsInMexico/Inegi/Mascotas_Hogar_2021_12_08.csv')
+head(dHouse)
+```
+
+### Showing data about pet ownership
+
+```{r}
+dOwnership <- read.csv('~/Documents/Data Analyst/PetsInMexico/Inegi/Mascotas_Población_2021_12_08.csv')
+head(dOwnership)
+```
+
+### Showing data about types of pets (ex. hamsters, birds, fishes, etc.)
+
+```{r}
+dTypes <- read.csv('~/Documents/Data Analyst/PetsInMexico/Inegi/Mascotas_Tipo_2021_12_08.csv')
+head(dTypes)
+```
+
+## Searching duplicate data
+
+After to showing pets activity, I inspected the data to check if duplicate data exists
+
+### Pets data
+
+```{r}
+PH <- dHouse %>% 
+  get_dupes(Entidad)
+  head(PH)
+```
+
+```{r}
+PO <- dOwnership %>% 
+  get_dupes(Entidad)
+  head(PO)
+```
+
+```{r}
+PT <- dTypes %>% 
+  get_dupes(Entidad)
+  head(PT)
+```
+
+Once the search for duplicated information in the files was completed, no duplicate data was found.
+
+Afterwards, we will review the totals of pets and the types of pets that exist within Mexican territory
+
+```{r}
+total_sum_h <- colSums(select(dHouse, Con.mascota, Sin.mascota))
+total_sum_table_h <- data.frame(Column = names(total_sum_h), Total = total_sum_h)
+total_sum_table_h$Column <- c("With pet", "Non pet")
+
+table1 <- kable(total_sum_table_h, caption = "Total number of pets per household in Mexico")
+print(table1)
+```
+
+Total number of pets per household in Mexico is obtained
+
+```{r}
+total_sum_p <- colSums(select(dOwnership, Con.mascota, Sin.mascota))
+total_sum_table_p <- data.frame(Column = names(total_sum_p), Total = total_sum_p)
+total_sum_table_p$Column <- c("With pet", "Non pet")
+
+table2 <- kable(total_sum_table_p, caption = "Total number of pets per mexican population")
+print(table2)
+```
+
+Total number of pets per mexican population is obtained
+
+```{r}
+total_sum_t <- colSums(select(dTypes, Perro, Gato, Otra.Especie))
+total_sum_table_t <- data.frame(Column = names(total_sum_t), Total = total_sum_t)
+total_sum_table_t$Column <- c("Dog", "Cat", "Other Pet")
+
+table2 <- kable(total_sum_table_t, caption = "Total of pets in Mexico")
+print(table2)
+```
+
+Total of pets in Mexico is obtained
+
+```{r}
+sum_with_pet_h <- sum(dHouse$Con.mascota)
+sum_non_pet_h <- sum(dHouse$Sin.mascota)
+
+porcentage_with_pet_h <- sum_with_pet_h / sum(sum_with_pet_h, sum_non_pet_h) * 100
+porcentage_non_pet_h <- sum_non_pet_h / sum(sum_with_pet_h, sum_non_pet_h) * 100
+total_dHouse <- data.frame(
+  Category_h = c("with pet", "non pet"),
+  Value_h = c(sum_with_pet_h, sum_non_pet_h),
+  Porcentage_h = c(porcentage_with_pet_h, porcentage_non_pet_h)
+)
+
+dark_blue <- "dodgerblue3"
+light_blue <- "dodgerblue"
+
+ggplot(total_dHouse, aes(x = "", y = Value_h, fill = Category_h)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar(theta = "y") +
+  geom_text(aes(label = paste0(round(Porcentage_h, 1), "%")),
+            position = position_stack(vjust = 0.5)) +
+  labs(title = "The percentage of households that own pets in Mexico",
+       fill = NULL, x = NULL, y = NULL) +
+  scale_fill_manual(values = c(dark_blue, light_blue)) +
+  theme_void() +
+  theme(legend.position = "bottom")
+```
+
+The percentages of Mexican households that have pets and those that do not have pets are observed
+
+```{r}
+sum_with_pet_p <- sum(dOwnership$Con.mascota)
+sum_non_pet_p <- sum(dOwnership$Sin.mascota)
+
+porcentage_with_pet_p <- sum_with_pet_p / sum(sum_with_pet_p, sum_non_pet_p) * 100
+porcentage_non_pet_p <- sum_non_pet_p / sum(sum_with_pet_p, sum_non_pet_p) * 100
+total_dOwnership <- data.frame(
+  Category_p = c("with pet", "non pet"),
+  Value_p = c(sum_with_pet_p, sum_non_pet_p),
+  Porcentage_p = c(porcentage_with_pet_p, porcentage_non_pet_p)
+)
+
+dark_green <- "darkseagreen"
+light_green <- "darkseagreen3"
+
+ggplot(total_dOwnership, aes(x = "", y = Value_p, fill = Category_p)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar(theta = "y") +
+  geom_text(aes(label = paste0(round(Porcentage_p, 1), "%")),
+            position = position_stack(vjust = 0.5)) +
+  labs(title = "The percentage of mexicans who own pets",
+       fill = NULL, x = NULL, y = NULL) +
+  scale_fill_manual(values = c(dark_green, light_green)) +
+  theme_void() +
+  theme(legend.position = "bottom")
+```
+
+The percentages of mexican population that have pets and those that do not have pets are observed
+
+```{r}
+sum_dog <- sum(dTypes$Perro)
+sum_cat <- sum(dTypes$Gato)
+sum_other <- sum(dTypes$Otra.Especie)
+
+total_sum <- sum(sum_cat, sum_dog, sum_other)
+
+porcentage_cat <- sum_cat / total_sum * 100
+porcentage_dog <- sum_dog / total_sum * 100
+porcentage_other <- sum_other / total_sum * 100
+
+total_dTypes <- data.frame(
+  Category_t = c("dog", "cat", "other"),
+  Value_t = c(sum_dog, sum_cat, sum_other),
+  Porcentage_t = c(porcentage_dog, porcentage_cat, porcentage_other)
+)
+
+dark_red <- "firebrick1"
+neutro_red <- "firebrick2"
+light_red <- "firebrick3"
+
+ggplot(total_dTypes, aes(x = "", y = Value_t, fill = Category_t)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar(theta = "y") +
+  geom_text(aes(label = paste0(round(Porcentage_t, 1), "%")),
+            position = position_stack(vjust = 0.5)) +
+  labs(title = "The percentage of pets in Mexico",
+       fill = NULL, x = NULL, y = NULL) +
+  scale_fill_manual(values = c(dark_red, neutro_red, light_red)) + 
+  theme_void() +
+  theme(legend.position = "bottom")
+```
+
+The percentages of dogs, cats, and other pets (hamsters, birds, fishes, etc.) inhabiting Mexico are examined
+
+```{r}
+resume <- dTypes %>%
+  group_by(Entidad) %>%
+  summarize(total = sum(Perro)) %>%
+  arrange(desc(total)) %>%
+  slice(1:5)
+
+dogs_chart <- ggplot(resume, aes(x = total, y = reorder(Entidad, total), fill = Entidad)) + 
+  geom_bar(stat = "identity") + 
+  labs(title = "The 5 states with the most dogs in Mexico", x= "Total Dogs", y = "States") + 
+  theme_linedraw() + 
+  theme(axis.text.y = element_text(size = 8, angle = 0)) +
+  scale_x_continuous(labels = scales::comma) +
+  scale_fill_brewer(palette = "Set1")
+
+dogs_table_m <- as_tibble(resume)
+print(dogs_chart)
+print(dogs_table_m)
+```
+
+The 5 states with the most dogs in Mexico are shown
+
+```{r}
+resume <- dTypes %>%
+  group_by(Entidad) %>%
+  summarize(total = sum(Perro)) %>%
+  arrange(total) %>%
+  slice(1:5)
+
+dogs_chart <- ggplot(resume, aes(x = total, y = reorder(Entidad, total), fill = Entidad)) + 
+  geom_bar(stat = "identity") + 
+  labs(title = "The 5 states with the fewest dogs in Mexico", x= "Total Dogs", y = "States") + 
+  theme_linedraw() + 
+  theme(axis.text.y = element_text(size = 8, angle = 0)) +
+  scale_x_continuous(labels = scales::comma) +
+  scale_fill_brewer(palette = "Set1")
+
+dogs_table_f <- as_tibble(resume)
+dogs_table_f <- dogs_table_f %>%
+  arrange(desc(total))
+
+print(dogs_chart)
+print(dogs_table_f)
+```
+
+The 5 states with the fewest dogs in Mexico are shown
+
+```{r}
+resume <- dTypes %>%
+  group_by(Entidad) %>%
+  summarize(total = sum(Gato)) %>%
+  arrange(desc(total)) %>%
+  slice(1:5)
+
+cats_chart <- ggplot(resume, aes(x = total, y = reorder(Entidad, total), fill = Entidad)) + 
+  geom_bar(stat = "identity") + 
+  labs(title = "The 5 states with the most cats in Mexico", x= "Total Cats", y = "States") + 
+  theme_linedraw() + 
+  theme(axis.text.y = element_text(size = 8, angle = 0)) +
+  scale_x_continuous(labels = scales::comma) +
+  scale_fill_brewer(palette = "Set2")
+
+cats_table_m <- as_tibble(resume)
+print(cats_chart)
+print(cats_table_m)
+```
+
+The 5 states with the most cats in Mexico are shown
+
+```{r}
+resume <- dTypes %>%
+  group_by(Entidad) %>%
+  summarize(total = sum(Perro)) %>%
+  arrange(total) %>%
+  slice(1:5)
+
+cats_chart <- ggplot(resume, aes(x = total, y = reorder(Entidad, total), fill = Entidad)) + 
+  geom_bar(stat = "identity") + 
+  labs(title = "The 5 states with the fewest cats in Mexico", x= "Total Cats", y = "States") + 
+  theme_linedraw() + 
+  theme(axis.text.y = element_text(size = 8, angle = 0)) +
+  scale_x_continuous(labels = scales::comma) +
+  scale_fill_brewer(palette = "Set2")
+
+cats_table_f <- as_tibble(resume)
+cats_table_f <- cats_table_f %>%
+  arrange(desc(total))
+
+print(cats_chart)
+print(cats_table_f)
+```
+
+The 5 states with the fewest cats in Mexico are shown
+
+```{r}
+resume <- dTypes %>%
+  group_by(Entidad) %>%
+  summarize(total = sum(Otra.Especie)) %>%
+  arrange(desc(total)) %>%
+  slice(1:5)
+
+other_a_chart <- ggplot(resume, aes(x = total, y = reorder(Entidad, total), fill = Entidad)) + 
+  geom_bar(stat = "identity") + 
+  labs(title = "The 5 states with the most other type of animals in Mexico", x= "Total Other Type of Animals", y = "States") + 
+  theme_linedraw() + 
+  theme(axis.text.y = element_text(size = 8, angle = 0)) +
+  scale_x_continuous(labels = scales::comma) +
+  scale_fill_brewer(palette = "Set3")
+
+other_a_table_m <- as_tibble(resume)
+print(other_a_chart)
+print(other_a_table_m)
+```
+
+The 5 states with the most other type of animals (hamsters, birds, fishes, etc.) in Mexico are shown
+
+```{r}
+resume <- dTypes %>%
+  group_by(Entidad) %>%
+  summarize(total = sum(Otra.Especie)) %>%
+  arrange(total) %>%
+  slice(1:5)
+
+other_a_chart <- ggplot(resume, aes(x = total, y = reorder(Entidad, total), fill = Entidad)) + 
+  geom_bar(stat = "identity") + 
+  labs(title = "The 5 states with the fewest cats in Mexico", x= "Total Cats", y = "States") + 
+  theme_linedraw() + 
+  theme(axis.text.y = element_text(size = 8, angle = 0)) +
+  scale_x_continuous(labels = scales::comma) +
+  scale_fill_brewer(palette = "Set3")
+
+other_a_chart_f <- as_tibble(resume)
+other_a_chart_f <- other_a_chart_f %>%
+  arrange(desc(total))
+
+print(other_a_chart)
+print(other_a_chart_f)
+```
+
+The 5 states with the fewest other type of animals (hamsters, birds, fishes, etc.) in Mexico are shown
+
+From what we know, cats and dogs are the most preferred animals by humans worldwide, so I took it upon myself to see if they were also popular here in Mexico or if people preferred other types of pets
+
+```{r}
+total_each_animals <- colSums(dTypes[, c("Perro", "Gato", "Otra.Especie")])
+
+total_ea <- data.frame(
+  Especie = names(total_each_animals),
+  Total = total_each_animals
+)
+
+total_ea$Especie <- gsub("Perro", "Dog", total_ea$Especie)
+total_ea$Especie <- gsub("Gato", "Cat", total_ea$Especie)
+total_ea$Especie <- gsub("Otra.Especie", "Other Species", total_ea$Especie)
+
+total_ea <- total_ea %>%
+  arrange(desc(Total))
+
+chart_vs <- ggplot(total_ea, aes(x = reorder(Especie, Total), y = Total, fill = Especie)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Species", y = "Total", title = "What is the favorite animal of Mexicans?") +
+  scale_fill_brewer(palette = "Paired") +
+  theme_linedraw()
+
+chart_vs +
+  scale_y_continuous(labels = scales::comma)
+
+total_ea
+```
+
+In the results, we can observe that the favorite animal of Mexicans is the dog, and the one that is not as favored is the cat
+
+```{r}
+country_mx <- ne_states(country = "mexico", returnclass = "sf")
+
+country_mx <- st_transform(country_mx, crs = "+proj=utm +zone=13 +datum=WGS84")
+
+dTypes_sorted <- dTypes[match(country_mx$name, dTypes$Entidad), ]
+
+mx_data <- merge(country_mx, dTypes_sorted, by.x = "name", by.y = "Entidad", all.x = TRUE)
+
+ggplot() +
+  geom_sf(data = mx_data, aes(fill = Perro), color = "black") +
+  geom_sf_text(data = country_mx, aes(label = name), size = 3, color = "black", check_overlap = TRUE, na.rm = TRUE) +
+  scale_fill_gradient(low = "bisque1", high = "bisque4", guide = "legend", name = "Perro", labels = scales::comma) +
+  labs(title = "Dog preference by Mexican state territory", x = "", y = "") +
+  theme_linedraw()
+
+dTypes_sorted <- dTypes_sorted %>% arrange(desc(Perro))
+
+fd_chart <- data.frame(Entidad = dTypes_sorted$Entidad, Perro = dTypes_sorted$Perro)
+
+print(fd_chart)
+```
+
+Finally, Mexican states can be represented according to the density of canine population, using a color palette that ranges from those harboring a higher number of dogs, depicted in darker shades, to those with fewer dogs, represented in lighter tones.
+
+## Conclusion
+
+In the course of the analysis of animal preferences among people in Mexico, it can be concluded that the dog is the most preferred animal by a significant majority of individuals. This preference is reflected in a greater popularity and cultural acceptance of dogs as pets compared to other animals such as hamsters, birds, fish, and other animals. However, it is important to note that preference for other types of animals also exists, albeit to a lesser extent.
+
+Lastly, although cats appear to occupy the last place in terms of preference, there is still a considerable population that chooses them as pets, indicating that there continues to be diversity in animal preferences among people in Mexico.
+
+## References
+
+I would like to thank the following websites that helped me with create my case:
+
+-   Kaggle [Click here](https://www.kaggle.com)
+-   INEGI [Click here](https://www.inegi.org.mx)
+-   Posit [Click here](https://support.posit.co/hc/en-us)
+-   Stack Overflow [Click here](https://stackoverflow.com)
